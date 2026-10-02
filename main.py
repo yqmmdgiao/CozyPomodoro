@@ -21,9 +21,30 @@ from PySide6.QtWidgets import (
 )
 
 # ---------- 路径与配置 ----------
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_PATH = os.path.join(BASE_DIR, "config.json")
-ASSETS_DIR = os.path.join(BASE_DIR, "assets")
+# 打包后：资源在 sys._MEIPASS（只读临时目录），配置/用户文件在 exe 同级目录
+if getattr(sys, "frozen", False):
+    RESOURCE_DIR = sys._MEIPASS          # 打包进 exe 的只读资源
+    DATA_DIR = os.path.dirname(sys.executable)  # exe 所在目录（可写）
+else:
+    RESOURCE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DATA_DIR = os.path.dirname(os.path.abspath(__file__))
+CONFIG_PATH = os.path.join(DATA_DIR, "config.json")
+ASSETS_DIR = os.path.join(DATA_DIR, "assets")          # 用户资源（背景、提示音）
+RES_ASSETS_DIR = os.path.join(RESOURCE_DIR, "assets")  # 打包的只读资源（图标+默认媒体）
+
+
+def resolve_media(path):
+    """解析媒体路径：绝对路径不存在时，按文件名在 assets 和打包资源目录里找。"""
+    if not path:
+        return path
+    if os.path.exists(path):
+        return path
+    name = os.path.basename(path)
+    for d in (ASSETS_DIR, RES_ASSETS_DIR):
+        cand = os.path.join(d, name)
+        if os.path.exists(cand):
+            return cand
+    return path
 
 DEFAULT_CONFIG = {
     "work": 60,        # 创作时长（分钟）
@@ -204,6 +225,20 @@ class PomodoroWindow(QWidget):
         self.cfg = load_config()
         os.makedirs(ASSETS_DIR, exist_ok=True)
 
+        # 首次运行：自动加载打包的默认背景视频和音乐
+        if not self.cfg.get("bg"):
+            for f in sorted(os.listdir(RES_ASSETS_DIR)) if os.path.isdir(RES_ASSETS_DIR) else []:
+                if f.startswith("bg_") and f.lower().endswith((".mp4", ".mkv", ".avi", ".mov", ".webm")):
+                    self.cfg["bg"] = os.path.join(RES_ASSETS_DIR, f)
+                    self.cfg["bg_type"] = "video"
+                    break
+        if not self.cfg.get("songs"):
+            bundled_songs = [os.path.join(RES_ASSETS_DIR, f)
+                              for f in sorted(os.listdir(RES_ASSETS_DIR)) if f.lower().endswith(".mp3")] if os.path.isdir(RES_ASSETS_DIR) else []
+            if bundled_songs:
+                self.cfg["songs"] = bundled_songs
+                self.save_config()
+
         # 计时状态
         self.phase = WORK
         self.cycle = 1
@@ -224,7 +259,7 @@ class PomodoroWindow(QWidget):
         self.player.mediaStatusChanged.connect(self.on_media_status)
         self.player.positionChanged.connect(self.on_position)
         self.player.durationChanged.connect(self.on_duration)
-        self.songs = list(self.cfg.get("songs", []))  # 从配置恢复已导入歌曲
+        self.songs = [resolve_media(p) for p in self.cfg.get("songs", [])]  # 从配置恢复已导入歌曲
         self.song_index = -1
         self.music_dialog = None
         self.seeking = False
@@ -258,15 +293,18 @@ class PomodoroWindow(QWidget):
             self.on_audio_device_changed)
         self.on_audio_device_changed()  # 初始化时绑定当前默认设备
 
-        # 恢复上次的背景
-        if self.cfg["bg"] and os.path.exists(self.cfg["bg"]):
+        # 恢复上次的背景（打包后路径可能不存在，用 resolve_media 找打包资源）
+        bg_path = resolve_media(self.cfg.get("bg", ""))
+        if bg_path and os.path.exists(bg_path):
             if self.bg_type == "video":
-                self.set_background_video(self.cfg["bg"])
+                self.set_background_video(bg_path)
             else:
-                self.set_background_image(self.cfg["bg"])
+                self.set_background_image(bg_path)
 
         self.setWindowTitle("Cozy Pomodoro")
         icon_path = os.path.join(ASSETS_DIR, "icon.png")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(RES_ASSETS_DIR, "icon.png")
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         self.resize(1200, 740)
@@ -1009,6 +1047,8 @@ class PomodoroWindow(QWidget):
         box.setWindowTitle("Cozy Pomodoro")
         box.setText(f"🎉 全部 {self.cycle_value.text()} 组已完成，休息一下吧！")
         icon_path = os.path.join(ASSETS_DIR, "dialog_icon.png")
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(RES_ASSETS_DIR, "dialog_icon.png")
         if os.path.exists(icon_path):
             pix = QPixmap(icon_path).scaled(
                 64, 64, Qt.AspectRatioMode.KeepAspectRatio,

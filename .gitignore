@@ -14,6 +14,10 @@ assets/*.mov
 assets/*.webm
 assets/*.m4v
 assets/*.wav
+assets/*.mp3
+assets/*.flac
+assets/*.m4a
+assets/*.ogg
 !assets/.gitkeep
 dist/
 build/
