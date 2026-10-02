@@ -1,3 +1,4 @@
+<img width="504" height="527" alt="屏幕截图 2026-10-02 205502" src="https://github.com/user-attachments/assets/ed47aa05-f754-4cc7-98f2-e4a56e87d0fe" />
 ﻿# Cozy Pomodoro
 
 一个基于 PySide6 的舒适风番茄钟桌面应用。
