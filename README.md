@@ -27,3 +27,5 @@ python main.py
 - ssets/icon.png — 应用图标（需自行放置）
 - ssets/dialog_icon.png — 完成弹窗图标（需自行放置）
 - ssets/notify.wav — 提示音（首次运行自动生成）
+<img width="1649" height="89" alt="屏幕截图 2026-10-02 205457" src="https://github.com/user-attachments/assets/dd3ad866-9792-4212-9669-23592b071441" />
+<img width="1777" height="1111" alt="屏幕截图 2026-10-02 205451" src="https://github.com/user-attachments/assets/a6b200e5-7fda-43f3-966c-d2be158a5e56" />
